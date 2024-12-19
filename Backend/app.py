@@ -35,12 +35,7 @@ CATEGORY_KEYWORDS = {
         "spor", "şampiyona", "fitness", "antrenman", "koşu", "maç", "hakem", 
         "puan", "gol", "turnuva", "antrenör", "stadyum", "rakip", "kulüp"
     ],
-    "Sağlık": [
-        "hastane", "doktor", "tedavi", "ilaç", "diyet", "beslenme", "egzersiz", 
-        "vitamin", "aşı", "sağlık", "terapi", "psikoloji", "hastalık", "kalp", 
-        "grip", "bağışıklık", "kanser", "ameliyat", "tansiyon", "nabız", 
-        "check-up", "laboratuvar", "tahlil"
-    ],
+    
     "Teknoloji": [
         "bilgisayar", "telefon", "yapay zeka", "robot", "internet", "donanım", 
         "kodlama", "yazılım", "mobil", "blockchain", "kripto para", "drone", 
