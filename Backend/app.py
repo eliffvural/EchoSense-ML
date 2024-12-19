@@ -20,7 +20,7 @@ speaker_model = joblib.load("../Model/random_forest_model.joblib")
 scaler = joblib.load("../Model/scaler.joblib")
 whisper_model = whisper.load_model("base")
 
-# Mikrofon ve tahmin değişkenleri
+# Mikrofon ve tahmin değişkenlerini düzenleme
 is_recording = False
 last_prediction_time = 0
 prediction_interval = 1.5
