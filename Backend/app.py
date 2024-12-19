@@ -25,7 +25,7 @@ is_recording = False
 last_prediction_time = 0
 prediction_interval = 1.5
 
-# Konuşmacı etiketleri
+# Konuşmacı etiketlerini belirleme
 SPEAKER_LABELS = {0: "Elif", 1: "İrem", 2: "Nazlı"}
 
 # Kategori anahtar kelimeleri
