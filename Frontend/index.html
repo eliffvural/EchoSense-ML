@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ses Tanıma ve Analiz Uygulaması</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            color: #007BFF;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        #controls, #userControls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 18px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            color: white;
+            background-color: #007BFF;
+            cursor: pointer;
+            transition: transform 0.3s ease, background-color 0.3s;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #0056b3;
+            transform: translateY(-3px);
+        }
+
+        #transcription {
+            background-color: white;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 120px;
+            margin: 0 auto;
+            max-width: 800px;
+            overflow-y: auto;
+            font-size: 1.1rem;
+        }
+
+        .result-box {
+            text-align: center;
+            background: linear-gradient(to right, #e9ecef, #f8f9fa);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px auto;
+            max-width: 600px;
+        }
+
+        .result-box h3 {
+            margin: 10px 0;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 0.9rem;
+            color: #777;
+        }
+
+        .timer {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 2rem; /* Daha büyük font boyutu */
+            font-weight: bold;
+            color: #007BFF; /* Belirgin mavi renk */
+        }
+    </style>
+</head>
+<body>
+    <h1>Ses Tanıma ve Analiz Uygulaması</h1>
+
+    <!-- Kullanıcı Kontrolleri -->
+    <div id="userControls">
+        <button id="addUserButton">Yeni Kişi Ekle</button>
+        <button id="startButton" disabled>Kaydı Başlat</button>
+        <button id="stopButton" disabled>Kaydı Durdur</button>
+    </div>
+
+    <!-- Canlı Metin -->
+    <div>
+        <h2 style="text-align:center;">Canlı Metin:</h2>
+        <div id="transcription">Konuşmaya başladığınızda burada metin belirecek...</div>
+    </div>
+
+    <!-- Sonuçlar -->
+    <div class="result-box">
+        <h3>Konuşmacı: <span id="speaker">Bekleniyor...</span></h3>
+        <h3>Kategori: <span id="category">Bekleniyor...</span></h3>
+        <h3>Kelime Sayısı: <span id="wordCount">0</span></h3>
+    </div>
+
+    <!-- Sayaç -->
+    <div class="timer" id="timer">0</div>
+
+    <footer>
+        © 2024 Ses Analiz Uygulaması | Tasarım: Akademinin Parlayan Yıldızları
+    </footer>
+
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+    <script>
+        const addUserButton = document.getElementById("addUserButton");
+        const startButton = document.getElementById("startButton");
+        const stopButton = document.getElementById("stopButton");
+        const transcriptionDiv = document.getElementById("transcription");
+        const speakerSpan = document.getElementById("speaker");
+        const categorySpan = document.getElementById("category");
+        const timerDiv = document.getElementById("timer");
+        const wordCountSpan = document.getElementById("wordCount");
+
+        let recognition;
+        let processedSegments = [];
+        let isRecording = false;
+        let timerInterval;
+        let elapsedSeconds = 0;
+        let totalWordCount = 0;
+
+        const socket = io("http://127.0.0.1:5000");
+        const users = new Set();
+
+        addUserButton.addEventListener("click", () => {
+            const username = prompt("Lütfen kullanıcı adını girin:");
+            if (!username) return;
+
+            if (users.has(username)) {
+                alert(`'${username}' zaten eklenmiş bir kullanıcıdır. Lütfen başka bir isim girin.`);
+            } else {
+                users.add(username);
+                alert(`Yeni kullanıcı '${username}' başarıyla eklendi. Şimdi kayıt yapabilirsiniz.`);
+                startButton.disabled = false;
+            }
+        });
+
+        if ("webkitSpeechRecognition" in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = "tr-TR";
+
+            recognition.onstart = () => {
+                transcriptionDiv.textContent = "Dinliyor...";
+                processedSegments = [];
+                elapsedSeconds = 0;
+                totalWordCount = 0;
+                timerDiv.textContent = "0";
+                wordCountSpan.textContent = "0";
+                startTimer();
+                socket.emit('start_recording');
+                startButton.disabled = true;
+                stopButton.disabled = false;
+            };
+
+            recognition.onresult = (event) => {
+                let interimText = "";
+                for (let i = 0; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript.trim();
+                    if (event.results[i].isFinal) {
+                        if (!processedSegments.includes(transcript)) {
+                            processedSegments.push(transcript);
+                            totalWordCount += transcript.split(/\s+/).length;
+                            wordCountSpan.textContent = totalWordCount;
+                            sendToBackend(transcript);
+                        }
+                    } else {
+                        interimText += transcript + " ";
+                    }
+                }
+                transcriptionDiv.textContent = processedSegments.join(" ") + " " + interimText;
+            };
+
+            recognition.onend = () => {
+                transcriptionDiv.textContent += " [Kayıt durduruldu]";
+                stopRecording();
+                socket.emit('stop_recording');
+            };
+        } else {
+            alert("Tarayıcınız bu özelliği desteklemiyor!");
+        }
+
+        const startTimer = () => {
+            timerInterval = setInterval(() => {
+                elapsedSeconds++;
+                timerDiv.textContent = elapsedSeconds.toString();
+            }, 1000);
+        };
+
+        const stopTimer = () => {
+            clearInterval(timerInterval);
+        };
+
+        const stopRecording = () => {
+            isRecording = false;
+            stopTimer();
+            startButton.disabled = false;
+            stopButton.disabled = true;
+        };
+
+        function sendToBackend(text) {
+            fetch("http://127.0.0.1:5000/analyze", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: text })
+            })
+            .then(response => response.json())
+            .then(data => {
+                speakerSpan.textContent = data.speaker || "Bilinmiyor";
+                categorySpan.textContent = data.category || "Kategori Bulunamadı";
+            })
+            .catch(error => console.error("Backend hatası:", error));
+        }
+
+        socket.on('speaker_update', (data) => {
+            speakerSpan.textContent = data.speaker || "Bilinmiyor";
+        });
+
+        startButton.addEventListener("click", () => recognition.start());
+        stopButton.addEventListener("click", () => {
+            recognition.stop();
+            stopRecording();
+        });
+    </script>
+</body>
+</html>
