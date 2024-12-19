@@ -5,36 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ses Tanıma ve Analiz Uygulaması</title>
     <style>
+        /* General Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
             background-color: #f4f6f9;
             color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
         }
 
         h1 {
-            text-align: center;
             color: #007BFF;
-            font-weight: 600;
+            font-size: 2.5rem;
             margin-bottom: 20px;
         }
 
-        #controls, #userControls {
+        #controls {
             display: flex;
-            justify-content: center;
             gap: 15px;
             margin-bottom: 20px;
         }
 
         button {
-            padding: 12px 18px;
+            padding: 12px 20px;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             font-size: 1rem;
             color: white;
             background-color: #007BFF;
             cursor: pointer;
-            transition: transform 0.3s ease, background-color 0.3s;
+            transition: all 0.3s ease;
         }
 
         button:disabled {
@@ -44,76 +52,91 @@
 
         button:hover:not(:disabled) {
             background-color: #0056b3;
-            transform: translateY(-3px);
+            transform: translateY(-2px);
         }
 
         #transcription {
             background-color: white;
             border: 2px solid #ccc;
-            border-radius: 10px;
+            border-radius: 12px;
             padding: 20px;
+            width: 80%;
             min-height: 120px;
-            margin: 0 auto;
-            max-width: 800px;
+            font-size: 1.2rem;
+            line-height: 1.5;
+            margin-bottom: 20px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
             overflow-y: auto;
-            font-size: 1.1rem;
         }
 
         .result-box {
             text-align: center;
-            background: linear-gradient(to right, #e9ecef, #f8f9fa);
+            background: #ffffff;
             padding: 20px;
-            border-radius: 10px;
-            margin: 20px auto;
-            max-width: 600px;
+            border-radius: 12px;
+            width: 80%;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
         }
 
         .result-box h3 {
             margin: 10px 0;
+            color: #007BFF;
+            font-size: 1.2rem;
+        }
+
+        .result-box span {
+            color: #555;
+            font-weight: bold;
+        }
+
+        #timer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #007BFF;
         }
 
         footer {
-            text-align: center;
             margin-top: 30px;
             font-size: 0.9rem;
             color: #777;
         }
 
-        .timer {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 2rem; /* Daha büyük font boyutu */
-            font-weight: bold;
-            color: #007BFF; /* Belirgin mavi renk */
+        @media (max-width: 600px) {
+            #transcription, .result-box {
+                width: 100%;
+            }
+
+            #controls {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
+    <div id="timer">0</div>
     <h1>Ses Tanıma ve Analiz Uygulaması</h1>
 
-    <!-- Kullanıcı Kontrolleri -->
-    <div id="userControls">
+    <div id="controls">
         <button id="addUserButton">Yeni Kişi Ekle</button>
         <button id="startButton" disabled>Kaydı Başlat</button>
         <button id="stopButton" disabled>Kaydı Durdur</button>
     </div>
 
-    <!-- Canlı Metin -->
-    <div>
-        <h2 style="text-align:center;">Canlı Metin:</h2>
-        <div id="transcription">Konuşmaya başladığınızda burada metin belirecek...</div>
-    </div>
+    <div id="transcription">Konuşmaya başladığınızda burada metin belirecek...</div>
 
-    <!-- Sonuçlar -->
     <div class="result-box">
         <h3>Konuşmacı: <span id="speaker">Bekleniyor...</span></h3>
         <h3>Kategori: <span id="category">Bekleniyor...</span></h3>
         <h3>Kelime Sayısı: <span id="wordCount">0</span></h3>
     </div>
-
-    <!-- Sayaç -->
-    <div class="timer" id="timer">0</div>
 
     <footer>
         © 2024 Ses Analiz Uygulaması | Akademinin Parlayan Yıldızları
@@ -127,28 +150,26 @@
         const transcriptionDiv = document.getElementById("transcription");
         const speakerSpan = document.getElementById("speaker");
         const categorySpan = document.getElementById("category");
-        const timerDiv = document.getElementById("timer");
         const wordCountSpan = document.getElementById("wordCount");
+        const timerDiv = document.getElementById("timer");
 
         let recognition;
         let processedSegments = [];
-        let isRecording = false;
+        let users = new Set();
+        let timer = 0;
         let timerInterval;
-        let elapsedSeconds = 0;
-        let totalWordCount = 0;
 
         const socket = io("http://127.0.0.1:5000");
-        const users = new Set();
 
         addUserButton.addEventListener("click", () => {
             const username = prompt("Lütfen kullanıcı adını girin:");
             if (!username) return;
 
             if (users.has(username)) {
-                alert(`'${username}' zaten eklenmiş bir kullanıcıdır. Lütfen başka bir isim girin.`);
+                alert("Böyle bir kullanıcı zaten var! Lütfen başka bir kullanıcı adı seçin.");
             } else {
                 users.add(username);
-                alert(`Yeni kullanıcı '${username}' başarıyla eklendi. Şimdi kayıt yapabilirsiniz.`);
+                alert(`${username} eklendi. Şimdi kayıt yapabilirsiniz.`);
                 startButton.disabled = false;
             }
         });
@@ -162,14 +183,8 @@
             recognition.onstart = () => {
                 transcriptionDiv.textContent = "Dinliyor...";
                 processedSegments = [];
-                elapsedSeconds = 0;
-                totalWordCount = 0;
-                timerDiv.textContent = "0";
-                wordCountSpan.textContent = "0";
                 startTimer();
                 socket.emit('start_recording');
-                startButton.disabled = true;
-                stopButton.disabled = false;
             };
 
             recognition.onresult = (event) => {
@@ -179,8 +194,6 @@
                     if (event.results[i].isFinal) {
                         if (!processedSegments.includes(transcript)) {
                             processedSegments.push(transcript);
-                            totalWordCount += transcript.split(/\s+/).length;
-                            wordCountSpan.textContent = totalWordCount;
                             sendToBackend(transcript);
                         }
                     } else {
@@ -188,34 +201,17 @@
                     }
                 }
                 transcriptionDiv.textContent = processedSegments.join(" ") + " " + interimText;
+                updateWordCount(transcriptionDiv.textContent);
             };
 
             recognition.onend = () => {
                 transcriptionDiv.textContent += " [Kayıt durduruldu]";
-                stopRecording();
+                stopTimer();
                 socket.emit('stop_recording');
             };
         } else {
             alert("Tarayıcınız bu özelliği desteklemiyor!");
         }
-
-        const startTimer = () => {
-            timerInterval = setInterval(() => {
-                elapsedSeconds++;
-                timerDiv.textContent = elapsedSeconds.toString();
-            }, 1000);
-        };
-
-        const stopTimer = () => {
-            clearInterval(timerInterval);
-        };
-
-        const stopRecording = () => {
-            isRecording = false;
-            stopTimer();
-            startButton.disabled = false;
-            stopButton.disabled = true;
-        };
 
         function sendToBackend(text) {
             fetch("http://127.0.0.1:5000/analyze", {
@@ -231,14 +227,37 @@
             .catch(error => console.error("Backend hatası:", error));
         }
 
+        function updateWordCount(text) {
+            const words = text.trim().split(/\s+/).filter(word => word.length > 0);
+            wordCountSpan.textContent = words.length;
+        }
+
+        function startTimer() {
+            timer = 0;
+            timerInterval = setInterval(() => {
+                timer++;
+                timerDiv.textContent = timer;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
         socket.on('speaker_update', (data) => {
             speakerSpan.textContent = data.speaker || "Bilinmiyor";
         });
 
-        startButton.addEventListener("click", () => recognition.start());
+        startButton.addEventListener("click", () => {
+            recognition.start();
+            startButton.disabled = true;
+            stopButton.disabled = false;
+        });
+
         stopButton.addEventListener("click", () => {
             recognition.stop();
-            stopRecording();
+            startButton.disabled = false;
+            stopButton.disabled = true;
         });
     </script>
 </body>
