@@ -15,7 +15,7 @@ import logging
 app = Flask(__name__, template_folder='../Frontend')
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Modelleri yükle
+# Modelleri yükleme
 speaker_model = joblib.load("../Model/random_forest_model.joblib")
 scaler = joblib.load("../Model/scaler.joblib")
 whisper_model = whisper.load_model("base")
