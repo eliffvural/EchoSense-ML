@@ -9,121 +9,353 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #e3f2fd, #ffffff);
+            color: #2c3e50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
         }
 
-        h1,
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #1a237e;
+        }
+
         h3 {
-            color: #2c3e50;
+            font-size: 1.2rem;
+            margin-top: 20px;
+            color: #3949ab;
+        }
+
+        label {
+            font-size: 1rem;
+            color: #283593;
+        }
+
+        input {
+            margin: 10px 0;
+            padding: 10px;
+            font-size: 1rem;
+            border: 1px solid #b0bec5;
+            border-radius: 5px;
+            width: 300px;
+        }
+
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            background-color: #64b5f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #42a5f5;
+        }
+
+        button:disabled {
+            background-color: #cfd8dc;
+            cursor: not-allowed;
         }
 
         #message {
-            font-size: 14px;
-            font-weight: bold;
-        }
-
-        #start-recording-btn,
-        #process-btn,
-        #predict-btn {
-            margin-top: 10px;
-            padding: 10px 20px;
-            background-color: #3498db;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-
-        #start-recording-btn:disabled,
-        #process-btn:disabled,
-        #predict-btn:disabled {
-            background-color: #95a5a6;
-            cursor: not-allowed;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            color: #388e3c;
         }
 
         img {
             display: block;
-            margin-top: 20px;
+            margin: 20px auto;
             max-width: 100%;
-            height: auto;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         #predicted-person {
             margin-top: 20px;
-            font-size: 18px;
+            font-size: 1.2rem;
             font-weight: bold;
+            color: #1565c0;
         }
 
-        #prediction {
+        .result-box {
+            background-color: #ffffff;
+            padding: 20px;
+            padding-left: 60px;
+            margin-left:80px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             margin-top: 20px;
-            font-size: 20px;
-            font-weight: bold;
+            text-align: left;
+            width: 90%;
+            height: 265px; /* Transcription ile aynı yapın */
+            max-width: 500px;
         }
+
+        .result-box h3 {
+            margin: 10px 0;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loader {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #1e88e5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        /* Ekstra Stillemeler */
+        .button-container {
+            margin-top: 5px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .image-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .image-box {
+            text-align: center;
+            flex: 1;
+        }
+
+        canvas {
+            background-color: #f9f9f9;
+            border-radius: 12px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .analysis-table-container {
+            margin-top: 40px;
+            text-align: center;
+            width: 100%;
+            max-width: 1400px;
+        }
+
+        table {
+            margin: 0 auto;
+            border-collapse: collapse;
+            width: 100%;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 15px;
+            font-size: 1rem;
+            text-align: left;
+        }
+
+        thead {
+            background-color: #3949ab;
+            color: #ffffff;
+        }
+
+        tbody tr:nth-child(odd) {
+            background-color: #f9f9f9;
+        }
+
+        tbody tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        /* Timer Stili */
+        #timer {
+            font-size: 1rem;
+            margin-top: 10px;
+            color: #333;
+        }
+
+
+        /* Flex Container */
+.transcription-chart-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px; /* İki bölüm arasındaki boşluk */
+    width: 100%;
+    max-width: 1200px; /* Genişliği ihtiyacınıza göre ayarlayın */
+    margin: 0 auto; /* Ortalamak için */
+}
+
+/* Transcription Bölümü */
+.transcription {
+    flex: 1;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    height: 300px; /* İhtiyacınıza göre ayarlayın */
+    overflow-y: auto; /* İçerik taşarsa kaydırma */
+}
+
+/* Speaker Chart Bölümü */
+.speaker-chart {
+    flex: 1;
+    padding: 20px;
+   margin-right: 80px;
+    height: 300px; /* Transcription ile aynı yapın */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.speaker-chart canvas {
+    width: 100%;
+    height: 100%;
+}
+
+
     </style>
 </head>
 
 <body>
-    <h1>Ses Kaydı ve Tahmin</h1>
+    <h1>Ses Tahmin ve Analiz Uygulaması</h1>
 
     <!-- Kullanıcı adı inputu -->
-    <label for="username">Kullanıcı Adı:</label>
+     <div>
+         <label for="username">Kullanıcı Adı:</label>
     <input type="text" id="username" placeholder="Kullanıcı Adı" required>
     <button onclick="addUser()">Yeni Kullanıcı Ekle</button>
     <p id="message"></p>
+     </div>
+   
 
-    <!-- Ses kaydını başlatma butonu -->
-    <button id="start-recording-btn" onclick="startRecordingAudio()" disabled>Ses Kaydını Başlat</button>
-
-    <!-- CSV işleme butonu -->
-    <button id="process-btn" onclick="processAudioFiles()" disabled>Sesleri CSV'ye İşle</button>
-    <h3>Waveform</h3>
-    <img id="waveform" width="500" />
-
-    <!-- Spectrogram Görseli -->
-    <h3>Spectrogram</h3>
-    <img id="spectrogram" width="500" />
-
-    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
-
-    <div id="transcription">Konuşmaya başladığınızda burada metin belirecek...</div>
-
-    <div class="result-box">
-        <h3>Konuşmacı: <span id="speaker">Bekleniyor...</span></h3>
-        <h3>Kategori: <span id="category">Bekleniyor...</span></h3>
-        <h3>Duygu tahmini <span id="emotion">Bekliyor...</span></h3>
-        <h3>Kelime Sayısı: <span id="wordCount">0</span></h3>
+    <!-- Kayıt ve İşleme Butonları -->
+    <div class="button-container">
+        <button id="start-recording-btn" onclick="startRecordingAudio()" disabled>Ses Kaydını Başlat</button>
+        <button id="process-btn" onclick="processAudioFiles()" disabled>Sesleri İşle</button>
     </div>
 
-    <!-- Ses Tahmini Yapma Butonu -->
-    <p id="speaker"></p>
-    <button onclick="startRecordingPrediction()">Start Recording</button>
-    <button onclick="stopRecordingPrediction()">Stop Recording</button>
+    <!-- Görüntüleme Bölümü -->
+    <div class="image-container">
+        <div class="image-box">
+            
+            <img id="waveform"  />
+        </div>
+        <div class="image-box">
+            
+            <img id="spectrogram" />
+        </div>
+    </div>
 
+ <!-- Tahmin Kayıt Butonları -->
+ <div class="button-container">
+    <button  style="background-color:#388e3c" onclick="startRecordingPrediction()">Konuşmaya Başla</button>
+    <button  style="background-color:firebrick" onclick="stopRecordingPrediction()">Konuşmayı Bitir</button>
+</div>
 
+     <!-- Waveform Canvas -->
+     <div style="text-align: center; margin-top: 20px;">
+        <canvas id="waveformCanvas" width="1000" height="100"></canvas>
+    </div>
 
+    <div id="transcription" class="transcription">
+        Konuşmaya başladığınızda burada metin belirecek...
+    </div>
+    <!-- Transkripsiyon -->
+    <div class="transcription-chart-container">
+          <!-- Sonuçlar -->
+    <div class="result-box">
+        <h3>Konuşmacı: 
+            <span id="speaker">
+                <div class="loader"></div>
+            </span>
+        </h3>
+        <h3>Kategori: 
+            <span id="category">
+                <div class="loader"></div>
+            </span>
+        </h3>
+        <h3>Duygu tahmini: 
+            <span id="emotion">
+                <div class="loader"></div>
+            </span>
+        </h3>
+        <h3>Kelime Sayısı: 
+            <span id="wordCount">
+                <div class="loader"></div>
+            </span>
+        </h3>
+    </div>
+
+        <!-- Speaker Chart -->
+        <div class="speaker-chart">
+            <canvas id="speakerChart"></canvas>
+        </div>
+    </div>
+    
+    
+
+   
+
+  
+   
+
+   
+
+   
+
+    <!-- Timer -->
+    <div id="timer">Süre: 0 saniye</div>
 
     <script>
-
         const transcriptionDiv = document.getElementById("transcription");
         const speakerSpan = document.getElementById("speaker");
         const categorySpan = document.getElementById("category");
         const wordCountSpan = document.getElementById("wordCount");
-        const timerDiv = document.getElementById("timer");
         const emotionSpan = document.getElementById("emotion");
+        const timerDiv = document.getElementById("timer");
+        const socket = io("http://127.0.0.1:5000");
+        
+        
 
         let recognition;
         let processedSegments = [];
         let users = new Set();
         let timer = 0;
         let timerInterval;
-        const socket = io("http://127.0.0.1:5000");
-
         let mediaRecorder;
         let audioChunks = [];
 
         // Yeni kullanıcı ekleme
         async function addUser() {
-            const username = document.getElementById('username').value;
+            const username = document.getElementById('username').value.trim();
 
             if (!username) {
                 alert("Lütfen kullanıcı adınızı girin.");
@@ -158,7 +390,7 @@
 
         // Ses kaydını başlatma
         async function startRecordingAudio() {
-            const username = document.getElementById('username').value;
+            const username = document.getElementById('username').value.trim();
 
             if (!username) {
                 alert("Lütfen kullanıcı adınızı girin.");
@@ -179,25 +411,34 @@
                     formData.append('username', username);
                     formData.append('audio', audioBlob, 'audio.webm');
 
-                    const response = await fetch('/save_audio', {
-                        method: 'POST',
-                        body: formData
-                    });
+                    try {
+                        const response = await fetch('/save_audio', {
+                            method: 'POST',
+                            body: formData
+                        });
 
-                    const data = await response.json();
-                    alert(data.message);
+                        const data = await response.json();
+                        alert(data.message);
 
-                    if (data.status === "success") {
-                        document.getElementById('waveform').src = 'data:image/png;base64,' + data.waveform;
-                        document.getElementById('spectrogram').src = 'data:image/png;base64,' + data.spectrogram;
-                        document.getElementById('process-btn').disabled = false;
+                        if (data.status === "success") {
+                            document.getElementById('waveform').src = 'data:image/png;base64,' + data.waveform;
+                            document.getElementById('spectrogram').src = 'data:image/png;base64,' + data.spectrogram;
+                            document.getElementById('process-btn').disabled = false;
+                        }
+                    } catch (error) {
+                        alert('Ses kaydedilirken bir hata oluştu: ' + error.message);
                     }
+
+                    audioChunks = []; // Temizle
                 };
 
                 mediaRecorder.start();
+                alert("Ses kaydı başladı. 90 saniye sonra otomatik olarak duracaktır.");
                 setTimeout(() => {
-                    mediaRecorder.stop();
-                }, 90000);  // 5 saniye sonra kaydı durdur
+                    if (mediaRecorder.state !== "inactive") {
+                        mediaRecorder.stop();
+                    }
+                }, 10000); // 90 saniye sonra durdur
             } catch (error) {
                 alert('Ses kaydı başlatılırken bir hata oluştu: ' + error.message);
             }
@@ -213,80 +454,156 @@
                 const data = await response.json();
                 alert(data.message);
             } catch (error) {
-                alert('Ses dosyalarını işlerken bir hata oluştu: ' + error.message);
+                console.log('Ses dosyalarını işlerken bir hata oluştu: ' + error.message);
             }
         }
 
-        // Anlık tahmin için ses kaydını başlatma
-        async function startRecordingPrediction() {
-            console.log("Ses kaydı başlatılıyor...");
-            socket.emit('start_recording');
+        let audioContext, analyser, microphone, dataArray, animationId;
 
-            if ("webkitSpeechRecognition" in window) {
-                recognition = new webkitSpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = true;
-                recognition.lang = "tr-TR";
+async function startRecordingPrediction() {
+    console.log("Ses kaydı başlatılıyor...");
+    socket.emit("start_recording");
 
-                recognition.onstart = () => {
-                    console.log("Ses tanıma başladı...");
-                    transcriptionDiv.textContent = "Dinliyor...";
-                    processedSegments = [];
-                    startTimer();
-                    socket.emit('start_recording');
-                };
+    if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "tr-TR";
 
-                recognition.onresult = (event) => {
-                    console.log("Sonuçlar alındı:", event);
-                    let interimText = "";
-                    for (let i = 0; i < event.results.length; i++) {
-                        const transcript = event.results[i][0].transcript.trim();
-                        if (event.results[i].isFinal) {
-                            console.log("Kesin sonuç:", transcript);
-                            if (!processedSegments.includes(transcript)) {
-                                processedSegments.push(transcript);
-                                sendToBackend(transcript);  // Backend'e metin gönderiliyor
-                            }
-                        } else {
-                            interimText += transcript + " ";
-                            console.log("Geçici sonuç:", transcript);
-                        }
+        recognition.onstart = () => {
+            console.log("Ses tanıma başladı...");
+            transcriptionDiv.textContent = "Dinliyor...";
+            processedSegments = [];
+            startWaveform(); // Ses dalgalarını başlat
+        };
+
+        recognition.onresult = (event) => {
+            console.log("Sonuçlar alındı:", event);
+            let interimText = "";
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript.trim();
+                if (event.results[i].isFinal) {
+                    console.log("Kesin sonuç:", transcript);
+                    if (!processedSegments.includes(transcript)) {
+                        processedSegments.push(transcript);
+                        sendToBackend(transcript); // Backend'e metin gönder
                     }
-                    transcriptionDiv.textContent = processedSegments.join(" ") + " " + interimText;
-                    updateWordCount(transcriptionDiv.textContent);
-                };
-
-                recognition.onend = () => {
-                    console.log("Ses tanıma durduruldu...");
-                    transcriptionDiv.textContent += " [Kayıt durduruldu]";
-                    stopTimer();
-                    socket.emit('stop_recording');
-                };
-
-                recognition.onerror = (event) => {
-                    console.error("Konuşma tanıma hatası:", event.error);
-                    alert("Bir hata oluştu: " + event.error);
-                };
-
-                recognition.start();  // Tanımayı başlat
-            } else {
-                console.log("Tarayıcınız bu özelliği desteklemiyor!");
-                alert("Tarayıcınız bu özelliği desteklemiyor!");
+                } else {
+                    interimText += transcript + " ";
+                    console.log("Geçici sonuç:", transcript);
+                }
             }
+            transcriptionDiv.textContent = processedSegments.join(" ") + " " + interimText;
+            updateWordCount(transcriptionDiv.textContent);
+        };
+
+        recognition.onend = () => {
+            console.log("Ses tanıma durduruldu...");
+            transcriptionDiv.textContent += " [Kayıt durduruldu]";
+            stopWaveform(); // Ses dalgalarını durdur
+        };
+
+        recognition.onerror = (event) => {
+            console.error("Konuşma tanıma hatası:", event.error);
+            alert("Bir hata oluştu: " + event.error);
+            stopWaveform(); // Ses dalgalarını durdur
+        };
+
+        recognition.start();
+    } else {
+        console.log("Tarayıcınız bu özelliği desteklemiyor!");
+        alert("Tarayıcınız bu özelliği desteklemiyor!");
+    }
+}
+
+function stopRecordingPrediction() {
+    console.log("Ses kaydı durduruluyor...");
+    if (recognition) {
+        recognition.stop();
+    }
+    socket.emit("stop_recording");
+    stopWaveform(); // Ses dalgalarını durdur
+}
+
+async function startWaveform() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+
+        microphone = audioContext.createMediaStreamSource(stream);
+        microphone.connect(analyser);
+
+        analyser.fftSize = 2048;
+        const bufferLength = analyser.frequencyBinCount;
+        dataArray = new Uint8Array(bufferLength);
+
+        drawWaveform();
+    } catch (error) {
+        console.error("Ses dalgası başlatılamadı:", error);
+    }
+}
+
+function drawWaveform() {
+    const canvas = document.getElementById("waveformCanvas");
+    const canvasCtx = canvas.getContext("2d");
+
+    canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+    analyser.getByteTimeDomainData(dataArray);
+
+    canvasCtx.lineWidth = 2;
+    canvasCtx.strokeStyle = "#1e88e5";
+
+    canvasCtx.beginPath();
+    const sliceWidth = canvas.width / dataArray.length;
+    let x = 0;
+
+    for (let i = 0; i < dataArray.length; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v * canvas.height) / 2;
+
+        if (i === 0) {
+            canvasCtx.moveTo(x, y);
+        } else {
+            canvasCtx.lineTo(x, y);
         }
 
+        x += sliceWidth;
+    }
+
+    canvasCtx.lineTo(canvas.width, canvas.height / 2);
+    canvasCtx.stroke();
+
+    animationId = requestAnimationFrame(drawWaveform);
+}
+
+function stopWaveform() {
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+    }
+    if (audioContext) {
+        audioContext.close();
+    }
+    const canvas = document.getElementById("waveformCanvas");
+    const canvasCtx = canvas.getContext("2d");
+    canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+
+        // Tahmin kaydını durdurma
         async function stopRecordingPrediction() {
             console.log("Ses kaydı durduruluyor...");
             if (recognition) {
-        recognition.stop();  // Speech recognition'ı durdur
-    }
+                recognition.stop();  // Speech recognition'ı durdur
+            }
             socket.emit('stop_recording'); // Sunucuya durdurma sinyali gönder
-        } // Sunucuya durdurma sinyali gönder
+        }
 
-
+        // Backend'e metin gönderme ve yanıtları işleme
         function sendToBackend(text) {
             console.log("Backend'e gönderilen metin:", text);
-            fetch("http://127.0.0.1:5000/analyze", {
+            fetch("/analyze", { // CORS sorunlarından kaçınmak için aynı domain kullanılmalı
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: text })
@@ -297,73 +614,99 @@
                     speakerSpan.textContent = data.speaker || "Bilinmiyor";
                     categorySpan.textContent = data.category || "Kategori Bulunamadı";
                     emotionSpan.textContent = data.emotion || "Bilinmiyor";
+                    updateTable(data);
                 })
                 .catch(error => {
                     console.error("Backend hatası:", error);
                 });
         }
 
+        // Kelime sayısını güncelleme
         function updateWordCount(text) {
             const words = text.trim().split(/\s+/).filter(word => word.length > 0);
             console.log("Kelime sayısı:", words.length);
             wordCountSpan.textContent = words.length;
+            document.getElementById('table-wordCount').textContent = words.length;
         }
 
+        // Zamanlayıcı başlatma
         function startTimer() {
             console.log("Zamanlayıcı başlatıldı...");
             timer = 0;
             timerInterval = setInterval(() => {
                 timer++;
-                timerDiv.textContent = timer;
+                timerDiv.textContent = `Süre: ${timer} saniye`;
             }, 1000);
         }
 
+        // Zamanlayıcı durdurma
         function stopTimer() {
             console.log("Zamanlayıcı durduruldu...");
             clearInterval(timerInterval);
         }
 
+        // Analiz Tablosunu Güncelleme
+        function updateTable(data) {
+            document.getElementById('table-speaker').textContent = data.speaker || "Bilinmiyor";
+            document.getElementById('table-category').textContent = data.category || "Kategori Bulunamadı";
+            document.getElementById('table-emotion').textContent = data.emotion || "Bilinmiyor";
+        }
 
-
-        // Ses tahminini dinle
-        socket.on('speaker_update', function (data) {
-            document.getElementById('speaker').textContent = data.speaker;
+        // Chart.js ile Speaker Grafiği
+        const ctx = document.getElementById('speakerChart').getContext('2d');
+        let speakerChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: [],  // Konuşmacı adları
+                datasets: [{
+                    label: 'Konuşmacı Yüzdeleri',
+                    data: [],  // Yüzdelik değerleri
+                    backgroundColor: ['#FF5733', '#33FF57', '#3357FF', '#FF33A6', '#FF8F33', '#8D33FF'],
+                    borderColor: ['#FF5733', '#33FF57', '#3357FF', '#FF33A6', '#FF8F33', '#8D33FF'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                return `${label}: ${value.toFixed(2)}%`;
+                            }
+                        }
+                    }
+                }
+            }
         });
 
-        function sendToBackend(text) {
-            fetch("http://127.0.0.1:5000/analyze", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: text })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    speakerSpan.textContent = data.speaker || "Bilinmiyor";
-                    categorySpan.textContent = data.category || "Kategori Bulunamadı";
-                    emotionSpan.textContent = data.emotion || "Bilinmiyor";
-                })
-                .catch(error => console.error("Backend hatası:", error));
-        }
+        // Websocket ile gelen veriyi işleme
+        socket.on('speaker_update', function (data) {
+            document.getElementById('speaker').textContent = data.speaker;
 
-        function updateWordCount(text) {
-            const words = text.trim().split(/\s+/).filter(word => word.length > 0);
-            wordCountSpan.textContent = words.length;
-        }
+            const percentages = data.percentages;
 
-        function startTimer() {
-            timer = 0;
-            timerInterval = setInterval(() => {
-                timer++;
-                timerDiv.textContent = timer;
-            }, 1000);
-        }
+            if (percentages) {
+                // Konuşmacıları ve yüzdeleri ayır
+                const labels = Object.keys(percentages);
+                const dataPoints = Object.values(percentages);
 
-        function stopTimer() {
-            clearInterval(timerInterval);
-        }
+                // Pasta grafiğini güncelle
+                speakerChart.data.labels = labels;
+                speakerChart.data.datasets[0].data = dataPoints;
 
+                // Yüzde verileri ile grafiği güncelle
+                speakerChart.update();
+            }
+        });
 
     </script>
+
 </body>
 
 </html>

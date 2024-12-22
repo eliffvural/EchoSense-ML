@@ -22,6 +22,7 @@ from sklearn.metrics import accuracy_score
 from scipy.io import wavfile
 import librosa.display
 from flask_socketio import SocketIO, emit
+from flask_cors import CORS
 import noisereduce as nr
 import threading
 import sounddevice as sd
@@ -39,6 +40,7 @@ app = Flask(__name__, template_folder='../../Frontend')
 socketio = SocketIO(app, cors_allowed_origins="*")
 model = joblib.load('../Model/model.pkl')
 whisper_model = whisper.load_model("base")
+CORS(app)
 
 UPLOAD_FOLDER = '../Audio'
 if not os.path.exists(UPLOAD_FOLDER):
@@ -401,26 +403,46 @@ def predict_category(text):
     
 # Mikrofon kaydını başlatan fonksiyon
 def audio_callback(indata, frames, time_info, status):
-    global last_prediction_time
-    
+    global last_prediction_time, speaker_times, total_time
+
     if status:
         print(status)
-    
+
     audio_data = indata[:, 0]  # Sadece tek kanal alıyoruz (mono)
-    
+
     # Gürültü azaltma işlemi
-    audio_data = nr.reduce_noise(y=audio_data, sr=16000)  # Gürültüyü azalt
-    
-    features = extract_features(audio_data)  # Use the correct feature extraction function
-    
+    audio_data = nr.reduce_noise(y=audio_data, sr=16000)
+
+    features = extract_features(audio_data)  # Özellik çıkarımı
+
     if features is not None:
-        # Zaman bilgisini 'time.time()' ile alıyoruz
-        current_time = time.time()  # Global zaman bilgisi
-        
-        if current_time - last_prediction_time >= prediction_interval:
-            # Belirli bir zaman aralığından sonra tahmin yap
+        current_time = time.time()
+
+        # Tahminler arasındaki zaman farkını hesapla
+        elapsed_time = current_time - last_prediction_time
+
+        if elapsed_time >= prediction_interval:
+            # Tahmin yap
             prediction = model.predict([features])[0]
-            socketio.emit('speaker_update', {'speaker': prediction})
+
+            # Toplam süreyi güncelle
+            total_time += elapsed_time
+
+            # Konuşmacının süresini güncelle
+            if prediction not in speaker_times:
+                speaker_times[prediction] = 0
+            speaker_times[prediction] += elapsed_time
+
+            # Yüzdelikleri hesapla
+            percentages = {k: (v / total_time) * 100 for k, v in speaker_times.items()}
+
+            # Sonuçları frontend'e gönder
+            socketio.emit('speaker_update', {
+                'speaker': prediction,
+                'percentages': percentages
+            })
+
+            # Son tahmin zamanını güncelle
             last_prediction_time = current_time
             
 def record_audio(file_path):
@@ -440,11 +462,13 @@ is_recording = False
 
 @socketio.on('start_recording')
 def start_recording():
-    global recording_thread, is_recording
+    global recording_thread, is_recording, speaker_times, total_time
     if not is_recording or (recording_thread and not recording_thread.is_alive()):
-        # Ses verisini sürekli olarak dinlemek için mikrofonu başlatıyoruz
+        # Kaydı başlat
         print("Recording started...")
         is_recording = True
+        speaker_times = {}  # Konuşmacı sürelerini sıfırla
+        total_time = 0  # Toplam süreyi sıfırla
         recording_thread = threading.Thread(target=record_audio)
         recording_thread.start()
     else:
@@ -452,10 +476,12 @@ def start_recording():
 
 @socketio.on('stop_recording')
 def stop_recording():
-    global is_recording
+    global is_recording, speaker_times, total_time
     is_recording = False
     print("Recording stopped")
-    socketio.emit('speaker_update', {'speaker': 'None'})
+    socketio.emit('speaker_update', {
+        'percentages': speaker_times,  # Durum kaybolmadan raporu gönder
+    })
     
 # Yeni: Analyze route (manuel metin gönderimi için)
 @app.route("/analyze", methods=["POST"])
@@ -523,44 +549,31 @@ def add_user():
 # Ses kaydını kaydetme ve işleme
 @app.route('/save_audio', methods=['POST'])
 def save_audio():
-    username = request.form.get('username')
-    audio_file = request.files.get('audio')
+    try:
+        username = request.form.get('username')
+        audio = request.files['audio']
 
-    if username and audio_file:
-        file_path = os.path.join(UPLOAD_FOLDER, f"{username}.webm")
+        # Dosyayı kaydet
+        audio_path = os.path.join(UPLOAD_FOLDER, f"{username}.webm")
+        audio.save(audio_path)
 
-        if os.path.exists(file_path):
-            return jsonify({"status": "error", "message": "Bu kullanıcı adı için ses kaydı mevcut."})
+        # WebM dosyasını WAV formatına dönüştür
+        wav_path = os.path.join(UPLOAD_FOLDER, f"{username}.wav")
+        audio_segment = AudioSegment.from_file(audio_path)
+        audio_segment.export(wav_path, format="wav")
 
-        try:
-            with open(file_path, 'wb') as f:
-                f.write(audio_file.read())
+        # Waveform ve Spectrogram görsellerini oluştur
+        waveform_data = generate_waveform(wav_path)
+        spectrogram_data = generate_spectrogram(wav_path)
 
-            # WebM dosyasını WAV'e dönüştür
-            audio = AudioSegment.from_file(file_path, format="webm")
-            wav_path = os.path.join(UPLOAD_FOLDER, f"{username}.wav")
-            audio.export(wav_path, format="wav")
-            os.remove(file_path)
+        return jsonify({
+            'status': 'success',
+            'waveform': waveform_data,
+            'spectrogram': spectrogram_data
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
 
-            user_folder = os.path.join(UPLOAD_FOLDER, username)
-            if not os.path.exists(user_folder):
-                os.makedirs(user_folder)
-
-            # 1.5 saniyelik parçalara ayır
-            split_and_augment_audio(wav_path, user_folder)
-
-            # Waveform ve spectrogram görsellerini oluştur
-            waveform_data = generate_waveform(wav_path)
-            spectrogram_data = generate_spectrogram(wav_path)
-
-            return jsonify({
-                "status": "success",
-                "message": f"Audio {username} için kaydedildi ve WAV formatına dönüştürüldü.",
-                "waveform": waveform_data,
-                "spectrogram": spectrogram_data
-            })
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)})
 
 @app.route('/process', methods=['POST'])
 def process():
