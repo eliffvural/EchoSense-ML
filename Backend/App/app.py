@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, request, jsonify
 import os
 import numpy as np
@@ -22,7 +21,6 @@ from sklearn.metrics import accuracy_score
 from scipy.io import wavfile
 import librosa.display
 from flask_socketio import SocketIO, emit
-from flask_cors import CORS
 import noisereduce as nr
 import threading
 import sounddevice as sd
@@ -31,7 +29,8 @@ import whisper
 import re
 from collections import defaultdict
 from zemberek import TurkishMorphology
-# Zemberek çözümleyici
+from collections import defaultdict
+
 
 
 morphology = TurkishMorphology.create_with_defaults()
@@ -40,7 +39,6 @@ app = Flask(__name__, template_folder='../../Frontend')
 socketio = SocketIO(app, cors_allowed_origins="*")
 model = joblib.load('../Model/model.pkl')
 whisper_model = whisper.load_model("base")
-CORS(app)
 
 UPLOAD_FOLDER = '../Audio'
 if not os.path.exists(UPLOAD_FOLDER):
@@ -348,6 +346,11 @@ users = {}
 # Mikrofon kaydını dinlemek için
 last_prediction_time = 0  # Son tahminin yapıldığı zaman
 prediction_interval = 1.5  # Her 1.5 saniyede bir tahmin yap
+# Konuşmacı sürelerini tutmak için bir sözlük
+speaker_times = {}
+total_time = 0  # Toplam konuşma süresi
+is_recording = False  # Kayıt durumu
+recording_thread = None  # Kayıt iş parçacığı
 
 # Başlangıç sayfası
 @app.route('/')
@@ -392,6 +395,56 @@ def analyze_emotions(sentence):
     }
 
     return percentages
+
+
+
+
+
+
+#NAZLI KOD
+
+def analyze_emotion_percentages(text):
+    words = re.findall(r'\b\w+\b', text.lower())
+    roots = [find_root(word) for word in words]
+
+    # Her duygu kategorisi için kelime sayılarını hesapla
+    emotion_counts = defaultdict(int)
+    for root in roots:
+        for emotion, keywords in emotions.items():
+            if root in keywords:
+                emotion_counts[emotion] += 1
+
+    if not emotion_counts:
+        return {"Nötr": 100}
+
+    # Toplam kelime sayısı
+    total_keywords = sum(emotion_counts.values())
+
+    # Yüzdelik oranları hesapla
+    percentages = {
+        emotion: (count / total_keywords * 100) for emotion, count in emotion_counts.items()
+    }
+
+    return percentages
+
+
+
+@app.route('/analyze-percentages', methods=['POST'])
+def analyze_percentages_endpoint():
+    data = request.get_json()  # Gelen veriyi al
+    text = data.get('text')  # Metni al
+
+    # analyze_percentages fonksiyonunu çağır
+    percentages = analyze_emotion_percentages(text)
+
+    return jsonify({"percentages": percentages})
+
+
+
+
+
+
+
 
 # Kategori tahmini
 def predict_category(text):
@@ -549,31 +602,44 @@ def add_user():
 # Ses kaydını kaydetme ve işleme
 @app.route('/save_audio', methods=['POST'])
 def save_audio():
-    try:
-        username = request.form.get('username')
-        audio = request.files['audio']
+    username = request.form.get('username')
+    audio_file = request.files.get('audio')
 
-        # Dosyayı kaydet
-        audio_path = os.path.join(UPLOAD_FOLDER, f"{username}.webm")
-        audio.save(audio_path)
+    if username and audio_file:
+        file_path = os.path.join(UPLOAD_FOLDER, f"{username}.webm")
 
-        # WebM dosyasını WAV formatına dönüştür
-        wav_path = os.path.join(UPLOAD_FOLDER, f"{username}.wav")
-        audio_segment = AudioSegment.from_file(audio_path)
-        audio_segment.export(wav_path, format="wav")
+        if os.path.exists(file_path):
+            return jsonify({"status": "error", "message": "Bu kullanıcı adı için ses kaydı mevcut."})
 
-        # Waveform ve Spectrogram görsellerini oluştur
-        waveform_data = generate_waveform(wav_path)
-        spectrogram_data = generate_spectrogram(wav_path)
+        try:
+            with open(file_path, 'wb') as f:
+                f.write(audio_file.read())
 
-        return jsonify({
-            'status': 'success',
-            'waveform': waveform_data,
-            'spectrogram': spectrogram_data
-        })
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+            # WebM dosyasını WAV'e dönüştür
+            audio = AudioSegment.from_file(file_path, format="webm")
+            wav_path = os.path.join(UPLOAD_FOLDER, f"{username}.wav")
+            audio.export(wav_path, format="wav")
+            os.remove(file_path)
 
+            user_folder = os.path.join(UPLOAD_FOLDER, username)
+            if not os.path.exists(user_folder):
+                os.makedirs(user_folder)
+
+            # 1.5 saniyelik parçalara ayır
+            split_and_augment_audio(wav_path, user_folder)
+
+            # Waveform ve spectrogram görsellerini oluştur
+            waveform_data = generate_waveform(wav_path)
+            spectrogram_data = generate_spectrogram(wav_path)
+
+            return jsonify({
+                "status": "success",
+                "message": f"Audio {username} için kaydedildi ve WAV formatına dönüştürüldü.",
+                "waveform": waveform_data,
+                "spectrogram": spectrogram_data
+            })
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)})
 
 @app.route('/process', methods=['POST'])
 def process():

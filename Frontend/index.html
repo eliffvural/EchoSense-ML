@@ -192,13 +192,7 @@
             background-color: #f1f1f1;
         }
 
-        /* Timer Stili */
-        #timer {
-            font-size: 1rem;
-            margin-top: 10px;
-            color: #333;
-        }
-
+     
 
         /* Flex Container */
 .transcription-chart-container {
@@ -241,6 +235,24 @@
 }
 
 
+
+/*nazlı css*/
+.emotion-chart {
+    flex: 1;
+    padding: 20px;
+   margin-right: 80px;
+    height: 300px; /* Transcription ile aynı yapın */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.emotion-chart canvas {
+    width: 100%;
+    height: 100%;
+}
+
+
     </style>
 </head>
 
@@ -251,7 +263,7 @@
      <div>
          <label for="username">Kullanıcı Adı:</label>
     <input type="text" id="username" placeholder="Kullanıcı Adı" required>
-    <button onclick="addUser()">Yeni Kullanıcı Ekle</button>
+    <button id="addUserButton" onclick="addUser()">Yeni Kullanıcı Ekle</button>
     <p id="message"></p>
      </div>
    
@@ -321,7 +333,11 @@
     </div>
     
     
+     <!--nazlı kod-->
 
+     <div class="emotion-chart">
+        <canvas id="emotionChart"></canvas>
+        </div>
    
 
   
@@ -331,8 +347,7 @@
 
    
 
-    <!-- Timer -->
-    <div id="timer">Süre: 0 saniye</div>
+   
 
     <script>
         const transcriptionDiv = document.getElementById("transcription");
@@ -340,7 +355,6 @@
         const categorySpan = document.getElementById("category");
         const wordCountSpan = document.getElementById("wordCount");
         const emotionSpan = document.getElementById("emotion");
-        const timerDiv = document.getElementById("timer");
         const socket = io("http://127.0.0.1:5000");
         
         
@@ -348,18 +362,26 @@
         let recognition;
         let processedSegments = [];
         let users = new Set();
-        let timer = 0;
+        
         let timerInterval;
         let mediaRecorder;
         let audioChunks = [];
 
         // Yeni kullanıcı ekleme
         async function addUser() {
-            const username = document.getElementById('username').value.trim();
+            const username = document.getElementById('username').value;
+            const messageElement = document.getElementById('message');
 
+            //Türkçe karakter içerip içermediğini kontrol etme işlemi: 
+            const turkishChars = /[ğüşıçöĞÜŞİÇÖ]/;
             if (!username) {
-                alert("Lütfen kullanıcı adınızı girin.");
+                messageElement.textContent = "Lütfen kullanıcı adınızı girin.";
                 return;
+            } else if (turkishChars.test(username)) {
+                messageElement.textContent = "Kullanıcı adı Türkçe karakterler içermemelidir.";
+                return;
+            } else {
+                messageElement.textContent = ""; // Hata mesajlarını temizle
             }
 
             try {
@@ -372,7 +394,6 @@
                 });
 
                 const data = await response.json();
-                const messageElement = document.getElementById('message');
 
                 if (data.status === "success") {
                     messageElement.style.color = "green";
@@ -384,9 +405,11 @@
                     document.getElementById('start-recording-btn').disabled = true;
                 }
             } catch (error) {
-                alert('Kullanıcı eklenirken bir hata oluştu: ' + error.message);
+                messageElement.style.color = "red";
+                messageElement.textContent = 'Kullanıcı eklenirken bir hata oluştu: ' + error.message;
             }
         }
+
 
         // Ses kaydını başlatma
         async function startRecordingAudio() {
@@ -396,6 +419,8 @@
                 alert("Lütfen kullanıcı adınızı girin.");
                 return;
             }
+
+            
 
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -438,7 +463,7 @@
                     if (mediaRecorder.state !== "inactive") {
                         mediaRecorder.stop();
                     }
-                }, 10000); // 90 saniye sonra durdur
+                }, 5000); // 90 saniye sonra durdur
             } catch (error) {
                 alert('Ses kaydı başlatılırken bir hata oluştu: ' + error.message);
             }
@@ -488,10 +513,12 @@ async function startRecordingPrediction() {
                     if (!processedSegments.includes(transcript)) {
                         processedSegments.push(transcript);
                         sendToBackend(transcript); // Backend'e metin gönder
+                        getEmotionPercentages(transcriptionDiv.textContent); //nazlı kod
                     }
                 } else {
                     interimText += transcript + " ";
                     console.log("Geçici sonuç:", transcript);
+                    
                 }
             }
             transcriptionDiv.textContent = processedSegments.join(" ") + " " + interimText;
@@ -502,6 +529,8 @@ async function startRecordingPrediction() {
             console.log("Ses tanıma durduruldu...");
             transcriptionDiv.textContent += " [Kayıt durduruldu]";
             stopWaveform(); // Ses dalgalarını durdur
+            const transcript = event.results[i][0].transcript.trim();
+            getEmotionPercentages(transcript); //nazlı kod
         };
 
         recognition.onerror = (event) => {
@@ -621,6 +650,47 @@ function stopWaveform() {
                 });
         }
 
+
+
+
+        //nazlı kod
+    
+        function getEmotionPercentages(text) {
+            fetch("/analyze-percentages", {  // Flask endpoint adresi
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: text })  // Metni JSON olarak gönder
+            })
+            .then(response => response.json())
+            .then(data => {
+                const percentages = data.percentages;
+        
+                console.log("Duygu yüzdeleri:", data.percentages);
+        
+                // Yüzdelik verilerini kullanarak grafiği güncelle
+                updateChart(percentages);
+            })
+            .catch(error => console.error("Hata:", error));
+        }
+        
+        function updateChart(percentages) {
+            const labels = Object.keys(percentages);  // Duygu kategorileri
+            const dataPoints = Object.values(percentages);  // Yüzde değerleri
+        
+            // Pasta grafiğini güncelle
+            emotionChart.data.labels = labels;
+            emotionChart.data.datasets[0].data = dataPoints;
+        
+            emotionChart.update();  // Grafiği güncelle
+        }
+
+
+
+
+
+
+
+
         // Kelime sayısını güncelleme
         function updateWordCount(text) {
             const words = text.trim().split(/\s+/).filter(word => word.length > 0);
@@ -629,21 +699,7 @@ function stopWaveform() {
             document.getElementById('table-wordCount').textContent = words.length;
         }
 
-        // Zamanlayıcı başlatma
-        function startTimer() {
-            console.log("Zamanlayıcı başlatıldı...");
-            timer = 0;
-            timerInterval = setInterval(() => {
-                timer++;
-                timerDiv.textContent = `Süre: ${timer} saniye`;
-            }, 1000);
-        }
-
-        // Zamanlayıcı durdurma
-        function stopTimer() {
-            console.log("Zamanlayıcı durduruldu...");
-            clearInterval(timerInterval);
-        }
+      
 
         // Analiz Tablosunu Güncelleme
         function updateTable(data) {
@@ -684,6 +740,50 @@ function stopWaveform() {
                 }
             }
         });
+
+
+
+
+        //nazlı kod
+
+        const ctx2 = document.getElementById('emotionChart').getContext('2d');
+        let emotionChart = new Chart(ctx2, {
+            type: 'pie',
+            data: {
+                labels: [],  // Duygu türleri
+                datasets: [{
+                    label: 'Duygu Yüzdeleri',
+                    data: [40,30,30],  // Yüzdelik değerler
+                    backgroundColor: ['#FF5733', '#33FF57', '#3357FF', '#FF33A6', '#FF8F33', '#8D33FF'],
+                    borderColor: ['#FF5733', '#33FF57', '#3357FF', '#FF33A6', '#FF8F33', '#8D33FF'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                return '${label}: ${value.toFixed(2)}%;'
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+
+
+
+
+
+
 
         // Websocket ile gelen veriyi işleme
         socket.on('speaker_update', function (data) {

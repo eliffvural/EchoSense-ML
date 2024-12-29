@@ -1,0 +1,6 @@
+2024-12-23 01:16:11,135 - test_username_validation - INFO - Test started
+2024-12-23 01:16:11,431 - test_username_validation - INFO - Invalid username entered
+2024-12-23 01:16:11,672 - test_username_validation - INFO - Add user button clicked
+2024-12-23 01:16:11,706 - test_username_validation - INFO - Error message found
+2024-12-23 01:16:11,782 - test_username_validation - ERROR - Error occurred: 'geçersiz karakter' not found in 'kullanýcý adý türkçe karakterler içermemelidir.' : Türkçe karakterler için bir hata mesajý bekleniyor.
+2024-12-23 01:16:14,163 - test_username_validation - INFO - Test finished
