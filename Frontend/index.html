@@ -89,25 +89,7 @@
             color: #1565c0;
         }
 
-        .result-box {
-            background-color: #ffffff;
-            padding: 20px;
-            padding-left: 60px;
-            
-            margin-left: 50px;
-            margin-right: 180px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            margin-top: 20px;
-            text-align: left;
-            width: 90%;
-            height: 265px; /* Transcription ile aynı yapın */
-            max-width: 500px;
-        }
-
-        .result-box h3 {
-            margin: 10px 0;
-        }
+      
 
         @keyframes spin {
             0% {
@@ -224,7 +206,7 @@
 }
 
 .result-box h3 {
-    margin: 10px 0;
+    margin-top:25px;
     font-size: 16px;
     color: #333;
 }
@@ -282,14 +264,27 @@
     overflow-y: auto; /* İçerik taşarsa kaydırma */
 }
 
-
-
-
-#timer {
-    font-size: 1.2rem;
-    margin-top: 10px;
-    color: #333;
+.timer-box {
+    font-size: 1.2rem; /* Yazı boyutu küçültüldü */
+    font-weight: bold;
+    color: #1565c0; /* Yazı rengi */
+    background-color: #f9f9f9; /* Arka plan rengi */
+    border: 2px solid #42a5f5; /* Kenar çizgisi */
+    border-radius: 5px; /* Köşeleri yuvarlat */
+    width: 150px; /* Genişlik azaltıldı */
+    height: 40px; /* Yükseklik azaltıldı */
+    display: flex;
+    justify-content: center; /* Yatay ortalama */
+    align-items: center; /* Dikey ortalama */
+    margin: 10px auto; /* Daha dar bir margin */
+    text-align: center; /* Metin hizalaması */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Hafif gölge efekti */
 }
+
+
+
+
+
 
 
 
@@ -310,12 +305,15 @@
 
     <!-- Kayıt ve İşleme Butonları -->
     <div class="button-container">
-        <button id="start-recording-btn" onclick="startRecordingAudio()" disabled>Ses Kaydını Başlat</button>
+        <button id="start-recording-btn" onclick="startRecordingAudio()">Ses Kaydını Başlat</button>
         <button id="process-btn" onclick="processAudioFiles()" disabled>Sesleri İşle</button>
-        <!-- Geri sayım göstermek için bir paragraf -->
-<p id="timer">90 saniye kaldı</p>
-
+        
+        <!-- Geri sayım kutusu -->
+        <div id="timer-box" class="timer-box">90 saniye kaldı</div>
     </div>
+    
+    
+    
 
     <!-- Görüntüleme Bölümü -->
     <div class="image-container">
@@ -459,90 +457,83 @@
 
 
         // Ses kaydını başlatma
-        // Timer değişkenleri
-let countdownInterval;
+        async function startRecordingAudio() {
+            const username = document.getElementById('username').value.trim();
+            const sesIsle = document.getElementById('process-btn');
+            const konusmayaBasla = document.getElementById('konusmayaBaslaButton');
+            const konusmayiBitir = document.getElementById('konusmayiBitirButton')
+            const kullanıcıAdi = document.getElementById('username')
+            const sesKaydi = document.getElementById('addUserButon')
 
-async function startRecordingAudio() {
-    const username = document.getElementById('username').value.trim();
-
-    if (!username) {
-        alert("Lütfen kullanıcı adınızı girin.");
-        return;
-    }
-
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-
-        mediaRecorder.ondataavailable = event => {
-            audioChunks.push(event.data);
-        };
-
-        mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            const formData = new FormData();
-            formData.append('username', username);
-            formData.append('audio', audioBlob, 'audio.webm');
-
+            username.disabled =true;
+            sesIsle.disabled=true;
+            konusmayaBasla.disabled=true;
+            konusmayiBitir.disabled=true;
+            kullanıcıAdi.disabled=true;
+            const timerBox = document.getElementById('timer-box');
+            let countdown = 90; // 90 saniye
+        
+            if (!username) {
+                alert("Lütfen kullanıcı adınızı girin.");
+                return;
+            }
+        
             try {
-                const response = await fetch('/save_audio', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-                alert(data.message);
-
-                if (data.status === "success") {
-                    document.getElementById('waveform').src = 'data:image/png;base64,' + data.waveform;
-                    document.getElementById('spectrogram').src = 'data:image/png;base64,' + data.spectrogram;
-                    document.getElementById('process-btn').disabled = false;
-                }
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const mediaRecorder = new MediaRecorder(stream);
+                const audioChunks = [];
+        
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+        
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const formData = new FormData();
+                    formData.append('username', username);
+                    formData.append('audio', audioBlob, 'audio.webm');
+        
+                    try {
+                        const response = await fetch('/save_audio', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const data = await response.json();
+                        alert(data.message);
+                    } catch (error) {
+                        alert('Ses kaydedilirken bir hata oluştu: ' + error.message);
+                    }
+                    finally{
+                        username.disabled =false;
+                        sesIsle.disabled=false;
+                        konusmayaBasla.disabled=false;
+                        konusmayiBitir.disabled=false;
+                        kullanıcıAdi.disabled=false;
+                    }
+                };
+        
+                mediaRecorder.start();
+                alert("Ses kaydı başladı. 90 saniye sonra otomatik olarak duracaktır.");
+        
+                // Sayaç geri sayımı
+                const countdownInterval = setInterval(() => {
+                    if (countdown > 0) {
+                        timerBox.textContent = `${countdown} saniye kaldı`;
+                        countdown--;
+                    } else {
+                        clearInterval(countdownInterval);
+                        if (mediaRecorder.state !== "inactive") {
+                            mediaRecorder.stop();
+                            timerBox.textContent = "Kaydedildi!";
+                        }
+                    }
+                }, 1000);
             } catch (error) {
-                alert('Ses kaydedilirken bir hata oluştu: ' + error.message);
+                alert('Ses kaydı başlatılırken bir hata oluştu: ' + error.message);
             }
-
-            audioChunks = []; // Temizle
-        };
-
-        // Kaydı başlat
-        mediaRecorder.start();
-        alert("Ses kaydı başladı. 90 saniye sonra otomatik olarak duracaktır.");
-
-        // 90 saniyelik geri sayımı başlat
-        startCountdown(90, () => {
-            if (mediaRecorder.state !== "inactive") {
-                mediaRecorder.stop();
-            }
-        });
-    } catch (error) {
-        alert('Ses kaydı başlatılırken bir hata oluştu: ' + error.message);
-    }
-}
-
-function startCountdown(duration, onComplete) {
-    let timeRemaining = duration;
-    const timerElement = document.getElementById('timer');
-
-    // Her saniye geri sayımı güncelle
-    countdownInterval = setInterval(() => {
-        timeRemaining--;
-        timerElement.textContent = `${timeRemaining} saniye kaldı`;
-
-        if (timeRemaining <= 0) {
-            clearInterval(countdownInterval);
-            timerElement.textContent = "Süre doldu!";
-            onComplete(); // Timer tamamlandığında çağır
         }
-    }, 1000);
-}
-
-// Kayıt durduğunda geri sayımı sıfırla
-function stopCountdown() {
-    clearInterval(countdownInterval);
-    document.getElementById('timer').textContent = "90 saniye kaldı";
-}
-
+        
+        
         async function processAudioFiles() {
             const startButton = document.getElementById("konusmayaBaslaButton");
             const stopButton = document.getElementById("konusmayiBitirButton");
